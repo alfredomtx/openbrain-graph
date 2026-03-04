@@ -98,7 +98,13 @@ function buildGraph(thoughts) {
   });
 
   // Add edges (pairwise cosine similarity)
-  const withEmbeddings = thoughts.filter(t => t.embedding);
+  // Parse embeddings from strings if needed
+  thoughts.forEach(t => {
+    if (typeof t.embedding === 'string') {
+      try { t.embedding = JSON.parse(t.embedding); } catch(e) { t.embedding = null; }
+    }
+  });
+  const withEmbeddings = thoughts.filter(t => t.embedding && Array.isArray(t.embedding) && t.embedding.length > 0);
   for (let i = 0; i < withEmbeddings.length; i++) {
     for (let j = i + 1; j < withEmbeddings.length; j++) {
       const sim = cosineSim(withEmbeddings[i].embedding, withEmbeddings[j].embedding);
@@ -106,8 +112,8 @@ function buildGraph(thoughts) {
         try {
           g.addEdge(withEmbeddings[i].id, withEmbeddings[j].id, {
             weight: sim,
-            color: `rgba(160,140,240,${Math.min(0.7, 0.2 + (sim - SIM_THRESHOLD) * 4)})`,
-            size: Math.max(0.5, (sim - SIM_THRESHOLD) * 4),
+            color: `rgba(200,180,255,${Math.min(0.7, 0.2 + (sim - SIM_THRESHOLD) * 4)})`,
+            size: Math.max(1.5, (sim - SIM_THRESHOLD) * 8),
           });
         } catch {}
       }
@@ -139,6 +145,7 @@ function initRenderer(g) {
     labelColor: { color: '#cccccc' },
     labelSize: 11,
     defaultEdgeType: 'line',
+    enableEdgeEvents: false,
     renderEdgeLabels: false,
     nodeReducer: (node, data) => {
       const res = { ...data };
