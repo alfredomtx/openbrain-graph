@@ -45,6 +45,27 @@
     </div>
 
     <!-- Loading overlay -->
+    
+    <!-- Login Screen -->
+    <div id="login-screen" style="display:none; position:fixed; inset:0; background:#0a0a0f; z-index:1000; flex-direction:column; align-items:center; justify-content:center; gap:20px;">
+      <div style="text-align:center; margin-bottom:10px;">
+        <div style="font-size:2em; margin-bottom:4px;">&#x1F9E0;</div>
+        <div style="font-size:1.3em; font-weight:700; background:linear-gradient(135deg,#7c3aed,#06b6d4); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">OpenBrain</div>
+        <div style="color:#555; font-size:0.85em; margin-top:4px;">Sign in to view your knowledge graph</div>
+      </div>
+      <form id="login-form" style="display:flex; flex-direction:column; gap:12px; width:280px;">
+        <input id="login-email" type="email" placeholder="Email" required
+          style="background:#1a1a2e; border:1px solid #2a2a4a; border-radius:8px; color:#e0e0e0; padding:10px 14px; font-size:14px; outline:none;">
+        <input id="login-password" type="password" placeholder="Password" required
+          style="background:#1a1a2e; border:1px solid #2a2a4a; border-radius:8px; color:#e0e0e0; padding:10px 14px; font-size:14px; outline:none;">
+        <button type="submit"
+          style="background:#7c3aed; border:none; border-radius:8px; color:white; padding:10px; font-size:14px; font-weight:600; cursor:pointer;">
+          Sign In
+        </button>
+        <div id="login-error" style="color:#ef4444; font-size:12px; text-align:center; min-height:16px;"></div>
+      </form>
+    </div>
+
     <div id="loading">
       <div class="spinner"></div>
       <div id="loading-text">Loading thoughts</div>

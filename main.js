@@ -1,6 +1,12 @@
 import Graph from 'graphology';
 import Sigma from 'sigma';
 import forceAtlas2 from 'graphology-layout-forceatlas2';
+import { createClient } from '@supabase/supabase-js';
+
+// --- Supabase Auth ---
+const SUPABASE_URL = 'https://hkcsepatkmpkvxyvatfn.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhrY3NlcGF0a21wa3Z4eXZhdGZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1ODY4MjQsImV4cCI6MjA4ODE2MjgyNH0.GOqC4yZzIaXKbvCYtB74sNOb19cvchTm5P_i3jO4ZNQ';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 // --- Config ----------------------------------------------------------------
 const EDGE_FUNCTION_URL = 'https://hkcsepatkmpkvxyvatfn.supabase.co/functions/v1/open-brain-graph-data';
@@ -62,8 +68,10 @@ function formatDate(iso) {
 
 // --- Fetch data -------------------------------------------------------------
 async function fetchThoughts() {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token || '';
   const res = await fetch(`${EDGE_FUNCTION_URL}?key=${ACCESS_KEY}`, {
-    headers: { 'Authorization': `Bearer ${ANON_KEY}` }
+    headers: { 'Authorization': `Bearer ${token || ANON_KEY}` }
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
@@ -328,7 +336,49 @@ document.getElementById('panel-close').addEventListener('click', () => {
 });
 
 // --- Main --------------------------------------------------------------------
+async function checkAuth() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) return session;
+
+  // Show login form
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+
+  return new Promise((resolve) => {
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      const errorEl = document.getElementById('login-error');
+      errorEl.textContent = '';
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        errorEl.textContent = error.message;
+        return;
+      }
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('loading').style.display = 'flex';
+      resolve(data.session);
+    });
+  });
+}
+
+// Add logout handler
+function initLogout() {
+  const btn = document.getElementById('logout-btn');
+  if (btn) {
+    btn.addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      window.location.reload();
+    });
+  }
+}
+
 async function main() {
+  const session = await checkAuth();
+  initLogout();
+
   const loadingText = document.getElementById('loading-text');
 
   try {
