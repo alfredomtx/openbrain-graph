@@ -34,6 +34,9 @@ let renderer = null;
 let graphData = null;
 let allThoughts = [];
 let highlightedNodes = new Set();
+let hoveredNode = null;
+let hoveredNeighbors = new Set();
+let hoveredEdges = new Set();
 
 // --- Helpers ----------------------------------------------------------------
 function cosineSim(a, b) {
@@ -149,7 +152,19 @@ function initRenderer(g) {
     renderEdgeLabels: false,
     nodeReducer: (node, data) => {
       const res = { ...data };
-      if (highlightedNodes.size > 0) {
+      if (hoveredNode) {
+        if (node === hoveredNode) {
+          res.size = data.size * 1.5;
+          res.zIndex = 10;
+        } else if (hoveredNeighbors.has(node)) {
+          res.size = data.size * 1.2;
+          res.zIndex = 5;
+        } else {
+          res.color = '#1a1a2a';
+          res.size = data.size * 0.7;
+          res.label = '';
+        }
+      } else if (highlightedNodes.size > 0) {
         if (highlightedNodes.has(node)) {
           res.size = data.size * 1.6;
           res.zIndex = 10;
@@ -161,10 +176,16 @@ function initRenderer(g) {
       return res;
     },
     edgeReducer: (edge, data) => {
-      if (highlightedNodes.size > 0) {
-        return { ...data, color: 'rgba(40,40,60,0.2)' };
+      if (hoveredNode) {
+        if (hoveredEdges.has(edge)) {
+          return { ...data, color: 'rgba(255,255,255,0.6)', size: 2 };
+        }
+        return { ...data, color: 'rgba(30,30,40,0.05)' };
       }
-      return data;
+      if (highlightedNodes.size > 0) {
+        return { ...data, color: 'rgba(40,40,60,0.1)' };
+      }
+      return { ...data, color: 'rgba(60,60,80,0.12)' };
     },
   });
 
@@ -181,6 +202,21 @@ function initRenderer(g) {
     highlightedNodes.clear();
     renderer.refresh();
     hidePanel();
+  });
+
+  // Hover effects
+  renderer.on('enterNode', ({ node }) => {
+    hoveredNode = node;
+    hoveredNeighbors = new Set(g.neighbors(node));
+    hoveredEdges = new Set(g.edges(node));
+    renderer.refresh();
+  });
+
+  renderer.on('leaveNode', () => {
+    hoveredNode = null;
+    hoveredNeighbors.clear();
+    hoveredEdges.clear();
+    renderer.refresh();
   });
 
   return renderer;
