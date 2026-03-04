@@ -6,7 +6,7 @@ import forceAtlas2 from 'graphology-layout-forceatlas2';
 const EDGE_FUNCTION_URL = 'https://hkcsepatkmpkvxyvatfn.supabase.co/functions/v1/open-brain-graph-data';
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhrY3NlcGF0a21wa3Z4eXZhdGZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1ODY4MjQsImV4cCI6MjA4ODE2MjgyNH0.GOqC4yZzIaXKbvCYtB74sNOb19cvchTm5P_i3jO4ZNQ';
 const ACCESS_KEY = 'REDACTED';
-const SIM_THRESHOLD = 0.35;
+const SIM_THRESHOLD = 0.3;
 
 // --- Color map --------------------------------------------------------------
 const TYPE_COLORS = {
@@ -53,7 +53,7 @@ function getColor(type) {
 }
 
 function truncate(str, n) {
-  return str && str.length > n ? str.slice(0, n) + '…' : str;
+  return str && str.length > n ? str.slice(0, n) + '...' : str;
 }
 
 function formatDate(iso) {
@@ -100,7 +100,7 @@ function buildGraph(thoughts) {
         try {
           g.addEdge(withEmbeddings[i].id, withEmbeddings[j].id, {
             weight: sim,
-            color: `rgba(100,100,160,${Math.min(0.6, (sim - SIM_THRESHOLD) * 3)})`,
+            color: `rgba(160,140,240,${Math.min(0.7, 0.2 + (sim - SIM_THRESHOLD) * 4)})`,
             size: Math.max(0.5, (sim - SIM_THRESHOLD) * 4),
           });
         } catch {}
@@ -130,6 +130,8 @@ function initRenderer(g) {
   if (renderer) renderer.kill();
 
   renderer = new Sigma(g, container, {
+    labelColor: { color: '#cccccc' },
+    labelSize: 11,
     defaultEdgeType: 'line',
     renderEdgeLabels: false,
     nodeReducer: (node, data) => {
@@ -237,7 +239,7 @@ function updateStats(thoughts) {
     .sort((a,b) => b[1]-a[1])
     .slice(0, 4)
     .map(([k,v]) => `${k.replace(/_/g,' ')}: ${v}`)
-    .join('  ·  ');
+    .join('  ...  ');
   document.getElementById('stat-types').textContent = typeSummary;
 
   if (latest) {
@@ -330,13 +332,13 @@ async function main() {
   const loadingText = document.getElementById('loading-text');
 
   try {
-    loadingText.textContent = 'Fetching thoughts…';
+    loadingText.textContent = 'Fetching thoughts...';
     allThoughts = await fetchThoughts();
 
-    loadingText.textContent = `Computing graph (${allThoughts.length} nodes)…`;
+    loadingText.textContent = `Computing graph (${allThoughts.length} nodes)...`;
     const g = buildGraph(allThoughts);
 
-    loadingText.textContent = 'Running force layout…';
+    loadingText.textContent = 'Running force layout...';
     applyLayout(g);
 
     graphData = g;
