@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenBrain Graph</title>
+  <script type="module" crossorigin src="/openbrain-graph/assets/index-CTQOWJh2.js"></script>
+  <link rel="stylesheet" crossorigin href="/openbrain-graph/assets/index-DjAjX6VO.css">
+</head>
+<body>
+  <div id="app">
+    <div id="graph-container"></div>
+
+    <!-- Top bar -->
+    <div id="topbar">
+      <div id="brand">?? OpenBrain Graph</div>
+      <div id="search-wrap">
+        <input id="search" type="text" placeholder="Search thoughts..." autocomplete="off" />
+        <div id="search-results"></div>
+      </div>
+      <div id="stats-bar">
+        <span id="stat-total">� thoughts</span>
+        <span id="stat-types"></span>
+        <span id="stat-updated"></span>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div id="legend">
+      <div class="legend-title">Node Types</div>
+      <div id="legend-items"></div>
+      <div class="legend-title" style="margin-top:10px">Size = Importance</div>
+      <div class="legend-size">
+        <span class="dot-lg"></span> High
+        <span class="dot-md"></span> Medium
+        <span class="dot-sm"></span> Low
+      </div>
+    </div>
+
+    <!-- Detail panel -->
+    <div id="panel" class="hidden">
+      <div id="panel-close">?</div>
+      <div id="panel-type"></div>
+      <div id="panel-content"></div>
+      <div id="panel-meta"></div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loading">
+      <div class="spinner"></div>
+      <div id="loading-text">Loading thoughts�</div>
+    </div>
+  </div>
+</body>
+</html>
