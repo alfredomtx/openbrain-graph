@@ -68,10 +68,8 @@ function formatDate(iso) {
 
 // --- Fetch data -------------------------------------------------------------
 async function fetchThoughts() {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token || '';
   const res = await fetch(`${EDGE_FUNCTION_URL}?key=${ACCESS_KEY}`, {
-    headers: { 'Authorization': `Bearer ${token || ANON_KEY}` }
+    headers: { 'Authorization': `Bearer ${ANON_KEY}` }
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
