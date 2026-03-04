@@ -11,7 +11,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 // --- Config ----------------------------------------------------------------
 const EDGE_FUNCTION_URL = 'https://hkcsepatkmpkvxyvatfn.supabase.co/functions/v1/open-brain-graph-data';
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhrY3NlcGF0a21wa3Z4eXZhdGZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1ODY4MjQsImV4cCI6MjA4ODE2MjgyNH0.GOqC4yZzIaXKbvCYtB74sNOb19cvchTm5P_i3jO4ZNQ';
-const ACCESS_KEY = 'REDACTED';
+// Auth handled by Supabase Auth JWT — no key in client code
 const SIM_THRESHOLD = 0.3;
 
 // --- Color map --------------------------------------------------------------
@@ -71,8 +71,11 @@ function formatDate(iso) {
 
 // --- Fetch data -------------------------------------------------------------
 async function fetchThoughts() {
-  const res = await fetch(`${EDGE_FUNCTION_URL}?key=${ACCESS_KEY}`, {
-    headers: { 'Authorization': `Bearer ${ANON_KEY}` }
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) throw new Error('Not authenticated');
+  const res = await fetch(EDGE_FUNCTION_URL, {
+    headers: { 'Authorization': `Bearer ${token}` }
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
