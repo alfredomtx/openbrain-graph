@@ -12,40 +12,40 @@
 
     <!-- Top bar -->
     <div id="topbar">
-      <div id="brand">&#x1F9E0; OpenBrain Graph</div>
+      <div id="brand">&#x1F9E0; OpenBrain</div>
+
+      <!-- View toggle -->
+      <div id="view-toggle">
+        <button class="view-btn active" data-view="knowledge">Knowledge Graph</button>
+        <button class="view-btn" data-view="thoughts">Thought Graph</button>
+      </div>
+
       <div id="search-wrap">
-        <input id="search" type="text" placeholder="Search thoughts..." autocomplete="off" />
+        <input id="search" type="text" placeholder="Search..." autocomplete="off" />
         <div id="search-results"></div>
       </div>
       <div id="stats-bar">
-        <span id="stat-total"> thoughts</span>
+        <span id="stat-total"></span>
         <span id="stat-types"></span>
         <span id="stat-updated"></span>
       </div>
+      <button id="logout-btn" title="Logout" style="background:none;border:none;color:#555;cursor:pointer;font-size:14px;">⏻</button>
     </div>
 
     <!-- Legend -->
     <div id="legend">
       <div class="legend-title">Node Types</div>
       <div id="legend-items"></div>
-      <div class="legend-title" style="margin-top:10px">Size = Importance</div>
-      <div class="legend-size">
-        <span class="dot-lg"></span> High
-        <span class="dot-md"></span> Medium
-        <span class="dot-sm"></span> Low
-      </div>
     </div>
 
     <!-- Detail panel -->
     <div id="panel" class="hidden">
-      <div id="panel-close">?</div>
+      <div id="panel-close">✕</div>
       <div id="panel-type"></div>
       <div id="panel-content"></div>
       <div id="panel-meta"></div>
     </div>
 
-    <!-- Loading overlay -->
-    
     <!-- Login Screen -->
     <div id="login-screen" style="display:none; position:fixed; inset:0; background:#0a0a0f; z-index:1000; flex-direction:column; align-items:center; justify-content:center; gap:20px;">
       <div style="text-align:center; margin-bottom:10px;">
@@ -66,9 +66,10 @@
       </form>
     </div>
 
+    <!-- Loading overlay -->
     <div id="loading">
       <div class="spinner"></div>
-      <div id="loading-text">Loading thoughts</div>
+      <div id="loading-text">Loading...</div>
     </div>
   </div>
   <script type="module" src="/main.js"></script>
