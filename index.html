@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OpenBrain Graph</title>
-  <script type="module" crossorigin src="/openbrain-graph/assets/index-BqsR0YcD.js"></script>
+  <title>OpenBrain</title>
+  <script type="module" crossorigin src="/openbrain-graph/assets/index-B3v47C42.js"></script>
   <link rel="stylesheet" crossorigin href="/openbrain-graph/assets/index-DLItYATo.css">
 </head>
 <body>
@@ -13,29 +13,21 @@
 
     <!-- Top bar -->
     <div id="topbar">
-      <div id="brand">&#x1F9E0; OpenBrain</div>
-
-      <!-- View toggle -->
-      <div id="view-toggle">
-        <button class="view-btn active" data-view="knowledge">Knowledge Graph</button>
-        <button class="view-btn" data-view="thoughts">Thought Graph</button>
-      </div>
-
+      <div id="brand">🧠 OpenBrain</div>
       <div id="search-wrap">
-        <input id="search" type="text" placeholder="Search..." autocomplete="off" />
+        <input id="search" type="text" placeholder="Search entities..." autocomplete="off" />
         <div id="search-results"></div>
       </div>
       <div id="stats-bar">
         <span id="stat-total"></span>
         <span id="stat-types"></span>
-        <span id="stat-updated"></span>
       </div>
       <button id="logout-btn" title="Logout" style="background:none;border:none;color:#555;cursor:pointer;font-size:14px;">⏻</button>
     </div>
 
     <!-- Legend -->
     <div id="legend">
-      <div class="legend-title">Node Types</div>
+      <div class="legend-title">Entity Types</div>
       <div id="legend-items"></div>
     </div>
 
@@ -50,7 +42,7 @@
     <!-- Login Screen -->
     <div id="login-screen" style="display:none; position:fixed; inset:0; background:#0a0a0f; z-index:1000; flex-direction:column; align-items:center; justify-content:center; gap:20px;">
       <div style="text-align:center; margin-bottom:10px;">
-        <div style="font-size:2em; margin-bottom:4px;">&#x1F9E0;</div>
+        <div style="font-size:2em; margin-bottom:4px;">🧠</div>
         <div style="font-size:1.3em; font-weight:700; background:linear-gradient(135deg,#7c3aed,#06b6d4); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">OpenBrain</div>
         <div style="color:#555; font-size:0.85em; margin-top:4px;">Sign in to view your knowledge graph</div>
       </div>
