@@ -7,11 +7,26 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/open-brain-graph-data`;
 
-// --- Colors ---
+// --- Colors (hex for display, RGBA arrays for Cosmograph) ---
 const ENTITY_COLORS = {
   person: '#06b6d4', project: '#a855f7', tool: '#3b82f6', company: '#f59e0b',
   concept: '#22c55e', location: '#f97316', default: '#8b5cf6',
 };
+
+// Convert hex color to [r, g, b, a] array for Cosmograph v2 direct strategy
+function hexToRGBA(hex) {
+  const h = hex.replace('#', '');
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+    255,
+  ];
+}
+
+const ENTITY_COLORS_RGBA = Object.fromEntries(
+  Object.entries(ENTITY_COLORS).map(([k, v]) => [k, hexToRGBA(v)])
+);
 
 const RELATION_COLORS = {
   works_at: '#f59e0b', uses: '#3b82f6', created: '#a855f7', owns: '#ef4444',
@@ -314,8 +329,7 @@ async function initCosmograph(entities, relationships) {
     id: e.id,
     label: e.name + (entitiesWithMedia.has(e.id) ? ' ✦' : ''),
     type: e.type,
-    color: ENTITY_COLORS[e.type] || ENTITY_COLORS.default,
-    size: 8 + Math.min(20, (e.mention_count || 1) * 2),
+    size: 4 + Math.min(12, (e.mention_count || 1) * 1.5),
   }));
 
   const links = relationships.map(r => ({
@@ -342,11 +356,17 @@ async function initCosmograph(entities, relationships) {
     ...cosmographConfig,
     points: preparedPoints,
     links: preparedLinks,
-    pointColorBy: 'color',
+    pointColorBy: 'type',
+    pointColorByMap: new Map(Object.entries(ENTITY_COLORS)),
+    pointColorStrategy: 'map',
     pointSizeBy: 'size',
+    pointSizeStrategy: 'direct',
     pointLabelBy: 'label',
+    pointLabelColor: '#cccccc',
     backgroundColor: '#0a0a0f',
     simulationIsRunning: true,
+    linkColor: '#1e1e2e',
+    linkWidth: 0.5,
     selectPointOnClick: 'connected',
     resetSelectionOnEmptyCanvasClick: true,
     onPointClick: (point) => {
@@ -472,23 +492,35 @@ async function main() {
     }
 
     loadingText.textContent = `Laying out ${allData.entities.length} entities...`;
+    console.log('[OpenBrain] Computing media...');
     computeEntitiesWithMedia();
+    console.log('[OpenBrain] Building indexes...');
     buildIndexes();
+    console.log('[OpenBrain] Building type filters...');
     buildEntityTypeFilters();
+    console.log('[OpenBrain] Init sliders...');
     initSliders();
+    console.log('[OpenBrain] Build legend...');
     buildLegend();
+    console.log('[OpenBrain] Build media filters...');
     buildMediaFilters();
+    console.log('[OpenBrain] Update stats...');
     updateStats(allData.entities.length);
 
+    console.log('[OpenBrain] Init Cosmograph...');
     const { entities, relationships } = getFilteredData();
     await initCosmograph(entities, relationships);
+    console.log('[OpenBrain] Cosmograph ready!');
 
     const loading = document.getElementById('loading');
     loading.classList.add('fade-out');
     setTimeout(() => loading.remove(), 500);
   } catch (err) {
-    loadingText.textContent = `Error: ${err.message}`;
-    loadingText.style.color = '#ef4444';
+    console.error('[OpenBrain] Error:', err);
+    if (loadingText) {
+      loadingText.textContent = `Error: ${err.message}`;
+      loadingText.style.color = '#ef4444';
+    }
   }
 }
 
