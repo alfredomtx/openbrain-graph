@@ -19,15 +19,37 @@
       </div>
       <div id="stats-bar">
         <span id="stat-total"></span>
-        <span id="stat-types"></span>
       </div>
-      <button id="logout-btn" title="Logout" style="background:none;border:none;color:#555;cursor:pointer;font-size:14px;">⏻</button>
+      <button id="logout-btn" title="Logout">⏻</button>
     </div>
 
-    <!-- Legend -->
-    <div id="legend">
-      <div class="legend-title">Entity Types</div>
-      <div id="legend-items"></div>
+    <!-- Filter sidebar -->
+    <div id="filters">
+      <div class="filter-section">
+        <div class="filter-title">Entity Types</div>
+        <div id="type-filters"></div>
+      </div>
+      <div class="filter-section">
+        <div class="filter-title">Min Connections</div>
+        <div class="slider-wrap">
+          <input id="min-connections" type="range" min="0" max="10" value="0" />
+          <span id="min-conn-val">0</span>
+        </div>
+      </div>
+      <div class="filter-section">
+        <div class="filter-title">Min Mentions</div>
+        <div class="slider-wrap">
+          <input id="min-mentions" type="range" min="0" max="20" value="0" />
+          <span id="min-mentions-val">0</span>
+        </div>
+      </div>
+      <div class="filter-section">
+        <div class="filter-title">Media Types</div>
+        <div id="media-type-filters"></div>
+      </div>
+      <div class="filter-section">
+        <span id="visible-count"></span>
+      </div>
     </div>
 
     <!-- Detail panel -->
