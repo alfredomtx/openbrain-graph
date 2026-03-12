@@ -1,6 +1,4 @@
-import Graph from 'graphology';
-import Sigma from 'sigma';
-import forceAtlas2 from 'graphology-layout-forceatlas2';
+import { Cosmograph, prepareCosmographData } from '@cosmograph/cosmograph';
 import { createClient } from '@supabase/supabase-js';
 
 // --- Supabase Auth ---
@@ -28,15 +26,14 @@ let activeMediaTypes = new Set(['text', 'image', 'video', 'audio']);
 let entitiesWithMedia = new Set();
 
 // --- State ---
-let renderer = null;
+let cosmo = null;
 let allData = { entities: [], relationships: [], thoughts: [], thoughtEntities: [] };
-let highlightedNodes = new Set();
-let hoveredNode = null;
-let hoveredNeighbors = new Set();
-let hoveredEdges = new Set();
-let currentPanelEntity = null;
-let currentPanelGraph = null;
-let currentPanelNodeId = null;
+let entityById = new Map();
+let relsByEntityId = new Map();
+let currentPanelEntityId = null;
+let activeEntityTypes = new Set();
+let minConnections = 0;
+let minMentions = 0;
 
 // --- Helpers ---
 function truncate(str, n) { return str && str.length > n ? str.slice(0, n) + '...' : str; }
@@ -53,105 +50,37 @@ async function fetchData() {
   return res.json();
 }
 
-// --- Build Graph ---
-function buildGraph(entities, relationships) {
-  const g = new Graph({ multi: false, type: 'directed' });
-  const entityMap = new Map();
-
-  entities.forEach(e => {
-    entityMap.set(e.id, e);
-    const color = ENTITY_COLORS[e.type] || ENTITY_COLORS.default;
-    const size = 8 + Math.min(20, (e.mention_count || 1) * 2);
-    const mediaLabel = entitiesWithMedia.has(e.id) ? ` ✦` : '';
-    g.addNode(e.id, {
-      label: e.name + mediaLabel,
-      size,
-      color,
-      x: Math.random() * 1000 - 500,
-      y: Math.random() * 1000 - 500,
-      entityData: e,
-    });
-  });
-
-  relationships.forEach(r => {
-    if (!entityMap.has(r.source_id) || !entityMap.has(r.target_id)) return;
-    if (r.source_id === r.target_id) return;
-    try {
-      g.addEdge(r.source_id, r.target_id, {
-        label: r.relation,
-        color: RELATION_COLORS[r.relation] || RELATION_COLORS.default,
-        size: 1.5 + (r.confidence || 0.5) * 2,
-        type: 'arrow',
-        relData: r,
-      });
-    } catch {} // skip duplicate edges
-  });
-
-  return g;
-}
-
-// --- Layout ---
-function applyLayout(g) {
-  if (g.order < 2) return; // skip if 0-1 nodes
-  forceAtlas2.assign(g, {
-    iterations: 200,
-    settings: { gravity: 1, scalingRatio: 10, slowDown: 5, barnesHutOptimize: true },
+// --- Build indexes ---
+function buildIndexes() {
+  entityById.clear();
+  relsByEntityId.clear();
+  allData.entities.forEach(e => entityById.set(e.id, e));
+  allData.relationships.forEach(r => {
+    if (!relsByEntityId.has(r.source_id)) relsByEntityId.set(r.source_id, []);
+    if (!relsByEntityId.has(r.target_id)) relsByEntityId.set(r.target_id, []);
+    relsByEntityId.get(r.source_id).push({ ...r, _dir: 'out' });
+    relsByEntityId.get(r.target_id).push({ ...r, _dir: 'in' });
   });
 }
 
-// --- Render ---
-function initRenderer(g) {
-  const container = document.getElementById('graph-container');
-  if (renderer) { renderer.kill(); renderer = null; }
+// --- Connection count per entity ---
+function getConnectionCount(entityId) {
+  return (relsByEntityId.get(entityId) || []).length;
+}
 
-  renderer = new Sigma(g, container, {
-    labelColor: { color: '#cccccc' },
-    labelSize: 12,
-    defaultEdgeType: 'arrow',
-    renderEdgeLabels: true,
-    edgeLabelColor: { color: '#888' },
-    edgeLabelSize: 10,
-    nodeReducer: (node, data) => {
-      const res = { ...data };
-      if (hoveredNode) {
-        if (node === hoveredNode) { res.size = data.size * 1.5; res.zIndex = 10; }
-        else if (hoveredNeighbors.has(node)) { res.size = data.size * 1.2; res.zIndex = 5; }
-        else { res.color = '#1a1a2a'; res.size = data.size * 0.7; res.label = ''; }
-      } else if (highlightedNodes.size > 0) {
-        if (highlightedNodes.has(node)) { res.size = data.size * 1.6; res.zIndex = 10; }
-        else { res.color = '#2a2a3a'; res.size = data.size * 0.6; }
-      }
-      return res;
-    },
-    edgeReducer: (edge, data) => {
-      if (hoveredNode) {
-        if (hoveredEdges.has(edge)) return { ...data, color: 'rgba(255,255,255,0.6)', size: 2.5 };
-        return { ...data, color: 'rgba(30,30,40,0.05)', label: '' };
-      }
-      if (highlightedNodes.size > 0) return { ...data, color: 'rgba(40,40,60,0.1)', label: '' };
-      return data;
-    },
+// --- Get filtered entities/relationships ---
+function getFilteredData() {
+  const entities = allData.entities.filter(e => {
+    if (!activeEntityTypes.has(e.type)) return false;
+    if ((e.mention_count || 0) < minMentions) return false;
+    if (getConnectionCount(e.id) < minConnections) return false;
+    return true;
   });
-
-  renderer.on('clickNode', ({ node }) => {
-    const data = g.getNodeAttributes(node);
-    showPanel(data.entityData, g, node);
-    highlightedNodes = new Set([node]);
-    renderer.refresh();
-  });
-
-  renderer.on('clickStage', () => { highlightedNodes.clear(); renderer.refresh(); hidePanel(); });
-
-  renderer.on('enterNode', ({ node }) => {
-    hoveredNode = node;
-    hoveredNeighbors = new Set(g.neighbors(node));
-    hoveredEdges = new Set(g.edges(node));
-    renderer.refresh();
-  });
-
-  renderer.on('leaveNode', () => {
-    hoveredNode = null; hoveredNeighbors.clear(); hoveredEdges.clear(); renderer.refresh();
-  });
+  const entityIds = new Set(entities.map(e => e.id));
+  const relationships = allData.relationships.filter(r =>
+    entityIds.has(r.source_id) && entityIds.has(r.target_id) && r.source_id !== r.target_id
+  );
+  return { entities, relationships };
 }
 
 // --- Media helpers ---
@@ -223,8 +152,10 @@ function buildMediaFilters() {
     label.querySelector('input').addEventListener('change', (e) => {
       if (e.target.checked) activeMediaTypes.add(type);
       else activeMediaTypes.delete(type);
-      // Re-render panel if open
-      if (currentPanelEntity) showPanel(currentPanelEntity, currentPanelGraph, currentPanelNodeId);
+      if (currentPanelEntityId) {
+        const entity = entityById.get(currentPanelEntityId);
+        if (entity) showPanel(entity.id);
+      }
     });
     container.appendChild(label);
   });
@@ -244,13 +175,15 @@ function getMediaStats() {
 }
 
 // --- Panel ---
-function showPanel(entity, graph, nodeId) {
-  currentPanelEntity = entity;
-  currentPanelGraph = graph;
-  currentPanelNodeId = nodeId;
+function showPanel(entityId) {
+  currentPanelEntityId = entityId;
+  const entity = entityById.get(entityId);
+  if (!entity) return;
+
   const panel = document.getElementById('panel');
-  document.getElementById('panel-type').textContent = entity.type;
-  document.getElementById('panel-type').style.color = ENTITY_COLORS[entity.type] || ENTITY_COLORS.default;
+  const typeEl = document.getElementById('panel-type');
+  typeEl.textContent = entity.type;
+  typeEl.style.color = ENTITY_COLORS[entity.type] || ENTITY_COLORS.default;
   document.getElementById('panel-content').textContent = entity.name;
 
   let html = '';
@@ -258,35 +191,33 @@ function showPanel(entity, graph, nodeId) {
   html += `<div class="meta-label">First seen</div><span style="color:#666">${formatDate(entity.created_at)}</span>`;
 
   // Relationships
-  const edges = graph.edges(nodeId);
-  if (edges.length) {
+  const rels = relsByEntityId.get(entityId) || [];
+  if (rels.length) {
     html += `<div class="meta-label">Relationships</div><div class="rel-list">`;
-    edges.forEach(e => {
-      const edgeData = graph.getEdgeAttributes(e);
-      const source = graph.source(e);
-      const target = graph.target(e);
-      const otherNode = source === nodeId ? target : source;
-      const otherData = graph.getNodeAttributes(otherNode);
-      const direction = source === nodeId ? '→' : '←';
-      const color = RELATION_COLORS[edgeData.label] || RELATION_COLORS.default;
+    rels.forEach(r => {
+      const otherId = r._dir === 'out' ? r.target_id : r.source_id;
+      const other = entityById.get(otherId);
+      if (!other) return;
+      const direction = r._dir === 'out' ? '→' : '←';
+      const color = RELATION_COLORS[r.relation] || RELATION_COLORS.default;
       html += `<div class="rel-item">
-        <span style="color:${color}">${edgeData.label}</span>
+        <span style="color:${color}">${r.relation}</span>
         <span class="rel-dir">${direction}</span>
-        <span style="color:${ENTITY_COLORS[otherData.entityData?.type] || '#888'}">${otherData.label}</span>
+        <span style="color:${ENTITY_COLORS[other.type] || '#888'}">${other.name}</span>
       </div>`;
     });
     html += `</div>`;
   }
 
   // Linked thoughts (with media filter)
-  const entityLinks = allData.thoughtEntities.filter(te => te.entity_id === entity.id);
+  const entityLinks = allData.thoughtEntities.filter(te => te.entity_id === entityId);
   const allLinkedThoughts = entityLinks
     .map(te => allData.thoughts.find(t => t.id === te.thought_id))
     .filter(Boolean);
   const filteredThoughts = allLinkedThoughts.filter(t => activeMediaTypes.has(t.media_type || 'text'));
-  
+
   if (allLinkedThoughts.length) {
-    const mediaIndicator = entitiesWithMedia.has(entity.id) ? ' <span class="media-indicator">✦ has media</span>' : '';
+    const mediaIndicator = entitiesWithMedia.has(entityId) ? ' <span class="media-indicator">✦ has media</span>' : '';
     html += `<div class="meta-label">Linked Memories (${filteredThoughts.length}/${allLinkedThoughts.length})${mediaIndicator}</div><div class="linked-thoughts">`;
     filteredThoughts.slice(0, 8).forEach(t => {
       html += renderThought(t);
@@ -299,28 +230,142 @@ function showPanel(entity, graph, nodeId) {
   panel.classList.remove('hidden');
 }
 
-function hidePanel() { document.getElementById('panel').classList.add('hidden'); }
+function hidePanel() {
+  currentPanelEntityId = null;
+  document.getElementById('panel').classList.add('hidden');
+}
 
 // --- Stats + Legend ---
-function updateStats() {
+function updateStats(visibleCount) {
   const e = allData.entities, r = allData.relationships;
-  document.getElementById('stat-total').textContent = `${e.length} entities · ${r.length} relationships · ${allData.thoughts.length} memories${getMediaStats()}`;
+  document.getElementById('stat-total').textContent =
+    `${e.length} entities · ${r.length} relationships · ${allData.thoughts.length} memories${getMediaStats()}`;
+  const vc = document.getElementById('visible-count');
+  if (vc) vc.textContent = visibleCount !== undefined ? `Showing ${visibleCount} entities` : '';
 }
 
 function buildLegend() {
   const container = document.getElementById('legend-items');
+  if (!container) return;
   container.innerHTML = '';
   const types = [...new Set(allData.entities.map(e => e.type))];
   types.forEach(type => {
     const item = document.createElement('div');
     item.className = 'legend-item';
     item.innerHTML = `<div class="legend-dot" style="background:${ENTITY_COLORS[type] || ENTITY_COLORS.default}"></div><span>${type}</span>`;
-    item.addEventListener('click', () => {
-      highlightedNodes = new Set(allData.entities.filter(e => e.type === type).map(e => e.id));
-      if (renderer) renderer.refresh();
-    });
     container.appendChild(item);
   });
+}
+
+// --- Filters UI ---
+function buildEntityTypeFilters() {
+  const container = document.getElementById('type-filters');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const types = [...new Set(allData.entities.map(e => e.type))];
+  types.forEach(type => {
+    activeEntityTypes.add(type);
+    const counts = allData.entities.filter(e => e.type === type).length;
+    const label = document.createElement('label');
+    label.className = 'type-filter';
+    label.innerHTML = `
+      <input type="checkbox" checked data-entity-type="${type}" />
+      <div class="legend-dot" style="background:${ENTITY_COLORS[type] || ENTITY_COLORS.default}"></div>
+      <span class="type-name">${type}</span>
+      <span class="type-count">${counts}</span>
+    `;
+    label.querySelector('input').addEventListener('change', (e) => {
+      if (e.target.checked) activeEntityTypes.add(type);
+      else activeEntityTypes.delete(type);
+      refreshGraph();
+    });
+    container.appendChild(label);
+  });
+}
+
+function initSliders() {
+  const minConnInput = document.getElementById('min-connections');
+  const minConnVal = document.getElementById('min-conn-val');
+  const minMentInput = document.getElementById('min-mentions');
+  const minMentVal = document.getElementById('min-mentions-val');
+
+  if (minConnInput) {
+    minConnInput.addEventListener('input', () => {
+      minConnections = parseInt(minConnInput.value);
+      minConnVal.textContent = minConnections;
+      refreshGraph();
+    });
+  }
+  if (minMentInput) {
+    minMentInput.addEventListener('input', () => {
+      minMentions = parseInt(minMentInput.value);
+      minMentVal.textContent = minMentions;
+      refreshGraph();
+    });
+  }
+}
+
+// --- Cosmograph init/update ---
+async function initCosmograph(entities, relationships) {
+  const container = document.getElementById('graph-container');
+
+  const points = entities.map(e => ({
+    id: e.id,
+    label: e.name + (entitiesWithMedia.has(e.id) ? ' ✦' : ''),
+    type: e.type,
+    color: ENTITY_COLORS[e.type] || ENTITY_COLORS.default,
+    size: 8 + Math.min(20, (e.mention_count || 1) * 2),
+  }));
+
+  const links = relationships.map(r => ({
+    source: r.source_id,
+    target: r.target_id,
+    relation: r.relation,
+  }));
+
+  const dataConfig = {
+    points: { pointIdBy: 'id' },
+    links: { linkSourceBy: 'source', linkTargetsBy: ['target'] },
+  };
+
+  const result = await prepareCosmographData(dataConfig, points, links);
+  const { points: preparedPoints, links: preparedLinks, cosmographConfig } = result;
+
+  if (cosmo) {
+    cosmo.destroy();
+    cosmo = null;
+    container.innerHTML = '';
+  }
+
+  cosmo = new Cosmograph(container, {
+    ...cosmographConfig,
+    points: preparedPoints,
+    links: preparedLinks,
+    pointColorBy: 'color',
+    pointSizeBy: 'size',
+    pointLabelBy: 'label',
+    backgroundColor: '#0a0a0f',
+    simulationIsRunning: true,
+    selectPointOnClick: 'connected',
+    resetSelectionOnEmptyCanvasClick: true,
+    onPointClick: (point) => {
+      if (point && point.id) {
+        showPanel(point.id);
+      } else {
+        hidePanel();
+      }
+    },
+    onCanvasClick: () => {
+      hidePanel();
+    },
+  });
+}
+
+async function refreshGraph() {
+  const { entities, relationships } = getFilteredData();
+  updateStats(entities.length);
+  await initCosmograph(entities, relationships);
 }
 
 // --- Search ---
@@ -330,13 +375,11 @@ function initSearch() {
 
   input.addEventListener('input', () => {
     const q = input.value.toLowerCase().trim();
-    if (!q) { results.classList.remove('visible'); highlightedNodes.clear(); if (renderer) renderer.refresh(); return; }
+    if (!q) { results.classList.remove('visible'); return; }
 
     const matches = allData.entities.filter(e =>
       e.name.toLowerCase().includes(q) || e.type.toLowerCase().includes(q)
     );
-    highlightedNodes = new Set(matches.map(e => e.id));
-    if (renderer) renderer.refresh();
 
     results.innerHTML = '';
     if (!matches.length) {
@@ -349,12 +392,7 @@ function initSearch() {
         div.addEventListener('click', () => {
           results.classList.remove('visible');
           input.value = '';
-          highlightedNodes = new Set([item.id]);
-          if (renderer) {
-            renderer.refresh();
-            const pos = renderer.getNodeDisplayData(item.id);
-            if (pos) renderer.getCamera().animate({ x: pos.x, y: pos.y, ratio: 0.5 }, { duration: 500 });
-          }
+          showPanel(item.id);
         });
         results.appendChild(div);
       });
@@ -411,7 +449,7 @@ async function main() {
     await supabase.auth.signOut(); window.location.reload();
   });
   document.getElementById('panel-close').addEventListener('click', () => {
-    hidePanel(); highlightedNodes.clear(); if (renderer) renderer.refresh();
+    hidePanel();
   });
   initSearch();
 
@@ -435,12 +473,15 @@ async function main() {
 
     loadingText.textContent = `Laying out ${allData.entities.length} entities...`;
     computeEntitiesWithMedia();
-    const g = buildGraph(allData.entities, allData.relationships);
-    applyLayout(g);
-    initRenderer(g);
-    updateStats();
+    buildIndexes();
+    buildEntityTypeFilters();
+    initSliders();
     buildLegend();
     buildMediaFilters();
+    updateStats(allData.entities.length);
+
+    const { entities, relationships } = getFilteredData();
+    await initCosmograph(entities, relationships);
 
     const loading = document.getElementById('loading');
     loading.classList.add('fade-out');
