@@ -339,11 +339,20 @@ async function initCosmograph(entities, relationships) {
   }));
 
   const dataConfig = {
-    points: { pointIdBy: 'id' },
+    points: {
+      pointIdBy: 'id',
+      pointColorBy: 'type',
+      pointColorStrategy: 'map',
+      pointColorByMap: ENTITY_COLORS,
+      pointSizeBy: 'size',
+      pointSizeStrategy: 'direct',
+      pointLabelBy: 'label',
+    },
     links: { linkSourceBy: 'source', linkTargetsBy: ['target'] },
   };
 
   const result = await prepareCosmographData(dataConfig, points, links);
+  if (!result) throw new Error('prepareCosmographData returned undefined');
   const { points: preparedPoints, links: preparedLinks, cosmographConfig } = result;
 
   if (cosmo) {
@@ -356,29 +365,18 @@ async function initCosmograph(entities, relationships) {
     ...cosmographConfig,
     points: preparedPoints,
     links: preparedLinks,
-    pointColorBy: 'type',
-    pointColorByMap: new Map(Object.entries(ENTITY_COLORS)),
-    pointColorStrategy: 'map',
-    pointSizeBy: 'size',
-    pointSizeStrategy: 'direct',
-    pointLabelBy: 'label',
-    pointLabelColor: '#cccccc',
     backgroundColor: '#0a0a0f',
     simulationIsRunning: true,
     linkColor: '#1e1e2e',
     linkWidth: 0.5,
+    pointLabelColor: '#cccccc',
     selectPointOnClick: 'connected',
     resetSelectionOnEmptyCanvasClick: true,
     onPointClick: (point) => {
-      if (point && point.id) {
-        showPanel(point.id);
-      } else {
-        hidePanel();
-      }
+      if (point && point.id) showPanel(point.id);
+      else hidePanel();
     },
-    onCanvasClick: () => {
-      hidePanel();
-    },
+    onCanvasClick: () => hidePanel(),
   });
 }
 
